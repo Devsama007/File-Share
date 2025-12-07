@@ -54,7 +54,14 @@ export const shareAPI = {
   shareWithUsers: (data) => api.post('/shares/user', data),
   generateLink: (data) => api.post('/shares/link', data),
   getFileShares: (fileId) => api.get(`/shares/file/${fileId}`),
-  deleteShare: (shareId) => api.delete(`/shares/${shareId}`)
+  deleteShare: (shareId) => api.delete(`/shares/${shareId}`),
+
+  viewSharedFile: (linkId) => api.get(`/shares/view/${linkId}`),
+  downloadSharedFile: (linkId) => {
+    return api.get(`/shares/download/${linkId}`, {
+      responseType: 'blob'
+    });
+  }
 };
 
 export default api;

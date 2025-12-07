@@ -4,6 +4,7 @@ import Login from './Login';
 import FileUpload from './FileUpload';
 import FileList from './FileList';
 import ShareModal from './ShareModal';
+import SharedFileView from './SharedFileView';
 import { fileAPI } from '../services/api';
 
 const App = () => {
@@ -12,18 +13,30 @@ const App = () => {
   const [sharedFiles, setSharedFiles] = useState([]);
   const [shareModalFile, setShareModalFile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [viewingShareLink, setViewingShareLink] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (token && storedUser) {
       setUser(JSON.parse(storedUser));
       loadFiles();
     } else {
       setLoading(false);
     }
+
+    // Check if url has share link
+    checkForShareLink();
   }, []);
+
+  const checkForShareLink = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const linkId = urlParams.get('share');
+    if (linkId) {
+      setViewingShareLink(linkId);
+    }
+  };
 
   const loadFiles = async () => {
     try {
@@ -46,11 +59,12 @@ const App = () => {
     setUser(null);
     setMyFiles([]);
     setSharedFiles([]);
+    setViewingShareLink(null);
   };
 
   const handleDelete = async (fileId) => {
     if (!confirm('Are you sure you want to delete this file?')) return;
-    
+
     try {
       await fileAPI.delete(fileId);
       loadFiles();
@@ -58,6 +72,11 @@ const App = () => {
       console.error('Delete error:', error);
       alert('Delete failed: ' + (error.response?.data?.error || 'Unknown error'));
     }
+  };
+
+  const handleBackFromShare = () => {
+    setViewingShareLink(null);
+    window.history.pushState({}, '', window.location.pathname);
   };
 
   if (!user) {
@@ -73,6 +92,11 @@ const App = () => {
         <div className="text-xl text-gray-600">Loading...</div>
       </div>
     );
+  }
+
+  // Show shared file view if viewing a share link
+  if (viewingShareLink) {
+    return <SharedFileView linkId={viewingShareLink} onBack={handleBackFromShare} />;
   }
 
   return (
@@ -117,8 +141,8 @@ const App = () => {
           <FileList
             files={sharedFiles}
             title="Shared with Me"
-            onShare={() => {}}
-            onDelete={() => {}}
+            onShare={() => { }}
+            onDelete={() => { }}
             showOwner={true}
           />
         </div>

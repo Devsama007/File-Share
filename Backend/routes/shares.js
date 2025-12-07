@@ -71,8 +71,38 @@ router.post('/link', auth, async (req, res) => {
   }
 });
 
-// Access file via share link
-router.get('/link/:linkId', auth, async (req, res) => {
+// Get file info via share link (requires auth but not ownership)
+router.get('/view/:linkId', auth, async (req, res) => {
+  try {
+    const share = await Share.findOne({ linkId: req.params.linkId })
+      .populate({
+        path: 'file',
+        populate: { path: 'owner', select: 'name email' }
+      });
+
+    if (!share) {
+      return res.status(404).json({ error: 'Share link not found' });
+    }
+
+    if (!share.isValid()) {
+      return res.status(410).json({ error: 'Share link has expired' });
+    }
+
+    // Return file info (user is authenticated, so they can access it)
+    res.json({
+      file: share.file,
+      share: {
+        expiryDate: share.expiryDate,
+        createdAt: share.createdAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Access failed' });
+  }
+});
+
+// Download file via share link (requires auth)
+router.get('/download/:linkId', auth, async (req, res) => {
   try {
     const share = await Share.findOne({ linkId: req.params.linkId })
       .populate('file');
@@ -81,33 +111,10 @@ router.get('/link/:linkId', auth, async (req, res) => {
       return res.status(404).json({ error: 'Share link not found or expired' });
     }
 
-    res.json({ file: share.file });
+    const file = share.file;
+    res.download(file.path, file.originalName);
   } catch (error) {
-    res.status(500).json({ error: 'Access failed' });
-  }
-});
-
-// Get shares for a file
-router.get('/file/:fileId', auth, async (req, res) => {
-  try {
-    const file = await File.findById(req.params.fileId);
-    
-    if (!file) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    // Check ownership
-    if (file.owner.toString() !== req.userId.toString()) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const shares = await Share.find({ file: req.params.fileId })
-      .populate('sharedWith', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json(shares);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Download failed' });
   }
 });
 
@@ -115,7 +122,7 @@ router.get('/file/:fileId', auth, async (req, res) => {
 router.delete('/:shareId', auth, async (req, res) => {
   try {
     const share = await Share.findById(req.params.shareId);
-    
+
     if (!share) {
       return res.status(404).json({ error: 'Share not found' });
     }

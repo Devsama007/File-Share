@@ -71,18 +71,16 @@ const ShareModal = ({ file, onClose, onShare }) => {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setShareType('users')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                shareType === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-              }`}
+              className={`flex-1 py-2 px-4 rounded-lg ${shareType === 'users' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
             >
               <Users className="w-4 h-4 inline mr-2" />
               Share with Users
             </button>
             <button
               onClick={() => setShareType('link')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                shareType === 'link' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-              }`}
+              className={`flex-1 py-2 px-4 rounded-lg ${shareType === 'link' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
             >
               <Link className="w-4 h-4 inline mr-2" />
               Share Link
@@ -112,25 +110,31 @@ const ShareModal = ({ file, onClose, onShare }) => {
           )}
 
           {shareLink && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded">
-              <p className="text-sm font-medium text-green-800 mb-2">Share Link Generated:</p>
-              <div className="flex gap-2">
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm font-medium text-green-800 mb-2">Share Link Generated!</p>
+              <p className="text-xs text-gray-600 mb-3">
+                Copy this link and share it. Recipients must be logged in to access the file.
+              </p>
+              <div className="flex gap-2 mb-3">
                 <input
                   type="text"
-                  value={shareLink}
+                  value={`${window.location.origin}/?share=${shareLink.split('/').pop()}`}
                   readOnly
-                  className="flex-1 px-2 py-1 text-sm border rounded"
+                  className="flex-1 px-3 py-2 text-sm border rounded-lg bg-white"
                 />
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(shareLink);
+                    navigator.clipboard.writeText(`${window.location.origin}/?share=${shareLink.split('/').pop()}`);
                     alert('Link copied to clipboard!');
                   }}
-                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 whitespace-nowrap"
                 >
-                  Copy
+                  Copy Link
                 </button>
               </div>
+              <p className="text-xs text-blue-600">
+                💡 Tip: Send this link to anyone. They'll need to log in first, then they can view and download the file.
+              </p>
             </div>
           )}
 

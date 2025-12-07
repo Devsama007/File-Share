@@ -17,15 +17,19 @@ const fileSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  path: {
+
+  // NEW: Cloudinary secure URL (replaces local path)
+  url: {
     type: String,
     required: true
   },
+
   owner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+
   uploadDate: {
     type: Date,
     default: Date.now

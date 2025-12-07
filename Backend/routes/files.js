@@ -1,10 +1,9 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const File = require('../models/File');
 const Share = require('../models/Share');
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const cloudinary = require('cloudinary').v2;
 
 const router = express.Router();
 
@@ -15,22 +14,29 @@ router.post('/upload', auth, upload.array('files', 10), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const files = await Promise.all(
+    const uploadedFiles = await Promise.all(
       req.files.map(async (file) => {
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(file.path, {
+          resource_type: "auto"
+        });
+
+        // Save in MongoDB
         const fileDoc = new File({
           filename: file.filename,
           originalName: file.originalname,
           type: file.mimetype,
           size: file.size,
-          path: file.path,
+          url: result.secure_url,   // Cloud URL
           owner: req.userId
         });
+
         await fileDoc.save();
         return fileDoc;
       })
     );
 
-    res.status(201).json({ files });
+    res.status(201).json({ files: uploadedFiles });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Upload failed' });
@@ -43,13 +49,14 @@ router.get('/my-files', auth, async (req, res) => {
     const files = await File.find({ owner: req.userId })
       .sort({ uploadDate: -1 })
       .populate('owner', 'name email');
+
     res.json(files);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Get files shared with user
+// Get shared files
 router.get('/shared', auth, async (req, res) => {
   try {
     const shares = await Share.find({
@@ -62,11 +69,10 @@ router.get('/shared', auth, async (req, res) => {
       populate: { path: 'owner', select: 'name email' }
     });
 
-    // Filter valid shares
     const validFiles = shares
-      .filter(share => share.isValid())
-      .map(share => share.file)
-      .filter(file => file !== null);
+      .filter(s => s.isValid())
+      .map(s => s.file)
+      .filter(f => f !== null);
 
     res.json(validFiles);
   } catch (error) {
@@ -74,18 +80,16 @@ router.get('/shared', auth, async (req, res) => {
   }
 });
 
-// Download file
+// Download file (Cloudinary URL redirect)
 router.get('/download/:fileId', auth, async (req, res) => {
   try {
     const file = await File.findById(req.params.fileId);
-    
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Check authorization
     const isOwner = file.owner.toString() === req.userId.toString();
-    
+
     if (!isOwner) {
       const share = await Share.findOne({
         file: file._id,
@@ -100,33 +104,47 @@ router.get('/download/:fileId', auth, async (req, res) => {
       }
     }
 
-    // Send file
-    res.download(file.path, file.originalName);
+    // STREAM FROM CLOUDINARY
+    const https = require('https');
+
+    https.get(file.url, (cloudinaryStream) => {
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${file.originalName || "download"}"`
+      );
+
+      cloudinaryStream.pipe(res);
+    }).on("error", (err) => {
+      console.error(err);
+      res.status(500).json({ error: "Download failed" });
+    });
+
   } catch (error) {
-    res.status(500).json({ error: 'Download failed' });
+    console.error(error);
+    res.status(500).json({ error: "Something went wrong!" });
   }
 });
+
 
 // Delete file
 router.delete('/:fileId', auth, async (req, res) => {
   try {
     const file = await File.findById(req.params.fileId);
-    
+
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Check ownership
     if (file.owner.toString() !== req.userId.toString()) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete file from filesystem
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
+    // Extract Cloudinary public_id
+    const publicId = file.url.split('/').slice(-1)[0].split('.')[0];
 
-    // Delete file document and related shares
+    // delete from Cloudinary
+    await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
+
     await File.findByIdAndDelete(req.params.fileId);
     await Share.deleteMany({ file: req.params.fileId });
 

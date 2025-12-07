@@ -1,67 +1,63 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_URL = 'http://localhost:5000/api';
+// ⬇️ Automatically switch between local & deployed
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://file-share-backend1.onrender.com/api";  // your Render backend
 
-// Create axios instance
+// Axios instance
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  headers: { "Content-Type": "application/json" }
 });
 
-// Add token to requests
+// Token middleware
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Auth APIs
+// AUTH API
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
-  getMe: () => api.get('/auth/me'),
-  getUsers: () => api.get('/auth/users')
+  register: (data) => api.post("/auth/register", data),
+  login: (data) => api.post("/auth/login", data),
+  getMe: () => api.get("/auth/me"),
+  getUsers: () => api.get("/auth/users")
 };
 
-// File APIs
+// FILE API
 export const fileAPI = {
-  upload: (formData) => {
-    return api.post('/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-  },
-  getMyFiles: () => api.get('/files/my-files'),
-  getSharedFiles: () => api.get('/files/shared'),
-  download: (fileId) => {
-    return api.get(`/files/download/${fileId}`, {
-      responseType: 'blob'
-    });
-  },
+  upload: (formData) =>
+    api.post("/files/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    }),
+
+  getMyFiles: () => api.get("/files/my-files"),
+  getSharedFiles: () => api.get("/files/shared"),
+
+  // ⬇️ No more blob — backend returns Cloudinary URL
+  download: (fileId) => api.get(`/files/download/${fileId}`),
+
   delete: (fileId) => api.delete(`/files/${fileId}`)
 };
 
-// Share APIs
+// SHARE API
 export const shareAPI = {
-  shareWithUsers: (data) => api.post('/shares/user', data),
-  generateLink: (data) => api.post('/shares/link', data),
+  shareWithUsers: (data) => api.post("/shares/user", data),
+  generateLink: (data) => api.post("/shares/link", data),
   getFileShares: (fileId) => api.get(`/shares/file/${fileId}`),
   deleteShare: (shareId) => api.delete(`/shares/${shareId}`),
 
   viewSharedFile: (linkId) => api.get(`/shares/view/${linkId}`),
-  downloadSharedFile: (linkId) => {
-    return api.get(`/shares/download/${linkId}`, {
-      responseType: 'blob'
-    });
-  }
+
+  downloadSharedFile: (linkId) =>
+    api.get(`/shares/download/${linkId}`)
 };
 
 export default api;

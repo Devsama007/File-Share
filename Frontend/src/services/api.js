@@ -1,9 +1,11 @@
 import axios from "axios";
 
+
 // ⬇️ Automatically switch between local & deployed
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://file-share-backend1.onrender.com/api";  // your Render backend
+
 
 // Axios instance
 const api = axios.create({
